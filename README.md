@@ -1,0 +1,1 @@
+# Programación de un manejador para un altavoz
