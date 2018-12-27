@@ -1,6 +1,6 @@
 ifneq ($(KERNELRELEASE),)
-	obj-m := spkr.o
-	spkr-objs := spkr-main.o spkr-io.o
+	obj-m := intspkr.o
+	intspkr-objs := spkr-main.o spkr-io.o
 else
 	KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 	PWD := $(shell pwd)
