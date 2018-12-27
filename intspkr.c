@@ -16,14 +16,14 @@ static int __init intspkr_init(void)
 
   status=alloc_chrdev_region(&dev, minor,
                         1, "intspkr");
-  
+
   if(status<0){
     printk(KERN_ALERT "Error allocating major or minor\n");
 
     return -1;
   }
-  
-  
+
+
 
    printk(KERN_ALERT "MAJOR ASIGNED: %d\n", (int)MAJOR(dev));
    printk(KERN_ALERT "MINOR ASIGNED: %d\n", (int)MINOR(dev));
@@ -48,8 +48,8 @@ static void __exit  intspkr_exit(void)
 
   device_destroy(module, dev);
   class_destroy(module);
-  
-  
+
+
   printk(KERN_ALERT "Exit module  \n");
 
 }
