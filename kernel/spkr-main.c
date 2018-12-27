@@ -1,4 +1,31 @@
-#include "intspkr.h"
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/version.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+#include <linux/wait.h>
+#include <linux/sched.h>
+#include <linux/kfifo.h>
+#include <linux/ioctl.h>
+#include <asm/uaccess.h>
+#include <linux/moduleparam.h>
+
+extern void spkr_init(void);
+extern void spkr_exit(void);
+extern void spkr_set_frequency(unsigned int frequency);
+extern void spkr_on(void);
+extern void spkr_off(void);
+
+dev_t dev;
+struct cdev char_device;
+struct class* module;
+
+
+static int open_mod(struct inode *inode, struct file *file);
+static int release_mod(struct inode *inode, struct file *flip);
+static ssize_t write(struct file *flip, const char __user *buf,
+		     size_t count, loff_t *f_pos);
 
 
 MODULE_AUTHOR("Abraham Carrera and Jorge Forcada");
@@ -13,6 +40,7 @@ module_param(minor, int, S_IRUGO);
 static int __init intspkr_init(void)
 {
   int status;
+
 
   status=alloc_chrdev_region(&dev, minor,
                         1, "intspkr");
@@ -71,6 +99,8 @@ static ssize_t write (struct file *filp, const char __user *buf, size_t count, l
     return 0;
 
 }
+
+
 
 module_init(intspkr_init);
 module_exit(intspkr_exit);
