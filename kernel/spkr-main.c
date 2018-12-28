@@ -10,6 +10,7 @@
 #include <linux/ioctl.h>
 #include <asm/uaccess.h>
 #include <linux/moduleparam.h>
+#include <linux/io.h>
 
 extern void spkr_init(void);
 extern void spkr_exit(void);
@@ -26,6 +27,7 @@ static int release_mod(struct inode *inode, struct file *flip);
 static ssize_t write(struct file *flip, const char __user *buf, size_t count, loff_t *f_pos);
 
 static unsigned int minor = 0;
+static unsigned int frequency = 440;
 static int status;
 static struct file_operations fops = {
       .owner =    THIS_MODULE,
@@ -40,6 +42,7 @@ MODULE_VERSION("1.0");
 MODULE_LICENSE("Dual BSD/GPL");
 
 module_param(minor, int, S_IRUGO);
+module_param(frequency, int, S_IRUGO);
 
 static int __init intspkr_init(void) {
   printk(KERN_INFO "Executing: intspkr_init\n\n");
@@ -61,11 +64,19 @@ static int __init intspkr_init(void) {
   module = class_create(THIS_MODULE, "speaker");
   device_create(module, NULL, dev, NULL, "intspkr");
   printk(KERN_INFO "\nSuccess: intspkr_init\n\n");
+
+  spkr_init();
+  spkr_set_frequency(frequency);
+  spkr_on();
+
   return 0;
 }
 
 static void __exit  intspkr_exit(void) {
   printk(KERN_INFO "Executing: intspkr_exit\n\n");
+
+   spkr_off();
+   spkr_exit();
 
   cdev_del(&char_device);
   unregister_chrdev_region(dev, 1);
