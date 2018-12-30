@@ -36,6 +36,10 @@ static struct file_operations fops = {
       .write =    write
 };
 
+#define CLASS_NAME "speaker"
+#define DEVICE_NAME "intspkr"
+#define MODULE_NAME "spkr"
+
 MODULE_AUTHOR("Abraham Carrera and Jorge Forcada");
 MODULE_DESCRIPTION("Speaker driver");
 MODULE_VERSION("1.0");
@@ -47,7 +51,7 @@ module_param(frequency, int, S_IRUGO);
 static int __init intspkr_init(void) {
   printk(KERN_INFO "Executing: intspkr_init\n\n");
 
-  status=alloc_chrdev_region(&dev, minor, 1, "intspkr");
+  status=alloc_chrdev_region(&dev, minor, 1, MODULE_NAME);
 
   if(status<0){
     printk(KERN_ALERT "Error allocating major or minor\n");
@@ -61,8 +65,8 @@ static int __init intspkr_init(void) {
 
   cdev_init(&char_device,  &fops);
   cdev_add(&char_device, dev, 1);
-  module = class_create(THIS_MODULE, "speaker");
-  device_create(module, NULL, dev, NULL, "intspkr");
+  module = class_create(THIS_MODULE, CLASS_NAME);
+  device_create(module, NULL, dev, NULL, DEVICE_NAME);
   printk(KERN_INFO "\nSuccess: intspkr_init\n\n");
 
   spkr_init();
