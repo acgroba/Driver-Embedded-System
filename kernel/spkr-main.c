@@ -48,15 +48,15 @@ MODULE_LICENSE("Dual BSD/GPL");
 module_param(minor, int, S_IRUGO);
 module_param(frequency, int, S_IRUGO);
 
-static int __init intspkr_init(void) {
-  printk(KERN_INFO "Executing: intspkr_init\n\n");
+static int __init spkr_init(void) {
+  printk(KERN_INFO "Executing: spkr_init\n\n");
 
   status=alloc_chrdev_region(&dev, minor, 1, MODULE_NAME);
 
   if(status<0){
     printk(KERN_ALERT "Error allocating major or minor\n");
 
-    printk(KERN_INFO "\nError: intspkr_init\n\n");
+    printk(KERN_INFO "\nError: spkr_init\n\n");
     return -1;
   }
 
@@ -67,7 +67,7 @@ static int __init intspkr_init(void) {
   cdev_add(&char_device, dev, 1);
   module = class_create(THIS_MODULE, CLASS_NAME);
   device_create(module, NULL, dev, NULL, DEVICE_NAME);
-  printk(KERN_INFO "\nSuccess: intspkr_init\n\n");
+  printk(KERN_INFO "\nSuccess: spkr_init\n\n");
 
   spkr_init();
   spkr_set_frequency(frequency);
@@ -76,8 +76,8 @@ static int __init intspkr_init(void) {
   return 0;
 }
 
-static void __exit  intspkr_exit(void) {
-  printk(KERN_INFO "Executing: intspkr_exit\n\n");
+static void __exit  spkr_exit(void) {
+  printk(KERN_INFO "Executing: spkr_exit\n\n");
 
    spkr_off();
    spkr_exit();
@@ -88,7 +88,7 @@ static void __exit  intspkr_exit(void) {
   device_destroy(module, dev);
   class_destroy(module);
 
-  printk(KERN_INFO "\nSuccess: intspkr_exit\n\n");
+  printk(KERN_INFO "\nSuccess: spkr_exit\n\n");
 }
 
 static int open_mod(struct inode *inode, struct file *filp) {
@@ -106,5 +106,5 @@ static ssize_t write (struct file *filp, const char __user *buf, size_t count, l
     return 0;
 }
 
-module_init(intspkr_init);
-module_exit(intspkr_exit);
+module_init(spkr_init);
+module_exit(spkr_exit);
