@@ -12,8 +12,8 @@
 #include <linux/moduleparam.h>
 #include <linux/io.h>
 
-extern void spkr_init(void);
-extern void spkr_exit(void);
+extern void spkr_io_init(void);
+extern void spkr_io_exit(void);
 extern void spkr_set_frequency(unsigned int frequency);
 extern void spkr_on(void);
 extern void spkr_off(void);
@@ -70,7 +70,7 @@ static int __init spkr_init(void) {
 
   printk(KERN_INFO "\nSuccess: spkr_init\n\n");
 
-  spkr_init();
+  spkr_io_init();
   spkr_set_frequency(frequency);
   spkr_on();
 

@@ -107,7 +107,7 @@ void spkr_off(void) {
 
 }
 
-void spkr_exit(void) {
+void spkr_io_exit(void) {
 	printk(KERN_INFO "spkr exit\n");
 
 	 iounmap(virtual_dir_peripherals);
