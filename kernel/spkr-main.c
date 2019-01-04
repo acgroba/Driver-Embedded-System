@@ -60,13 +60,14 @@ static int __init spkr_init(void) {
     return -1;
   }
 
-   printk(KERN_ALERT "MAJOR ASIGNED: %d\n", (int)MAJOR(dev));
-   printk(KERN_ALERT "MINOR ASIGNED: %d\n", (int)MINOR(dev));
+  printk(KERN_INFO "MAJOR ASIGNED: %d\n", (int)MAJOR(dev));
+  printk(KERN_INFO "MINOR ASIGNED: %d\n", (int)MINOR(dev));
 
   cdev_init(&char_device,  &fops);
   cdev_add(&char_device, dev, 1);
   module = class_create(THIS_MODULE, CLASS_NAME);
   device_create(module, NULL, dev, NULL, DEVICE_NAME);
+
   printk(KERN_INFO "\nSuccess: spkr_init\n\n");
 
   spkr_init();
@@ -76,11 +77,11 @@ static int __init spkr_init(void) {
   return 0;
 }
 
-static void __exit  spkr_exit(void) {
+static void __exit spkr_exit(void) {
   printk(KERN_INFO "Executing: spkr_exit\n\n");
 
-   spkr_off();
-   spkr_exit();
+  spkr_off();
+  spkr_io_exit();
 
   cdev_del(&char_device);
   unregister_chrdev_region(dev, 1);
