@@ -11,6 +11,7 @@
 #include <asm/uaccess.h>
 #include <linux/moduleparam.h>
 #include <linux/io.h>
+#include <linux/errno.h>
 
 extern void spkr_io_init(void);
 extern void spkr_io_exit(void);
@@ -22,10 +23,19 @@ dev_t dev;
 struct cdev char_device;
 struct class* module;
 
-static int open_mod(struct inode *inode, struct file *file);
+struct info_mydev {
+  struct cdev mydev_cdev;
+};
+
+static int open_mod(struct inode *inode, struct file *filp);
 static int release_mod(struct inode *inode, struct file *flip);
 static ssize_t write(struct file *flip, const char __user *buf, size_t count, loff_t *f_pos);
+static int mydev_open(struct inode *inode, struct file *filp);
+static void mydev_release(struct inode *inode, struct file *filp);
 
+struct info_mydev *info_dev;
+static int is_busy = 0;
+static int open_result;
 static unsigned int minor = 0;
 static unsigned int frequency = 440;
 static int status;
@@ -93,18 +103,51 @@ static void __exit spkr_exit(void) {
 }
 
 static int open_mod(struct inode *inode, struct file *filp) {
-    printk(KERN_ALERT "Open call\n");
-    return 0;
+  printk(KERN_INFO "Executing: open_mod\n\n");
+
+  open_result = mydev_open(inode, filp);
+
+  if (open_result < 0) {
+    printk(KERN_INFO "\nError: open_mod %d\n\n", open_result);
+  } else {
+    printk(KERN_INFO "\nSuccess: open_mod\n\n");
+  }
+  return open_result;
 }
 
 static int release_mod(struct inode *inode, struct file *filp) {
-    printk(KERN_ALERT "Release call\n");
-    return 0;
+  printk(KERN_INFO "Executing: release_mod\n\n");
+  mydev_release(inode, filp);
+  printk(KERN_INFO "\nSuccess: release_mod\n\n");
+  return 0;
 }
 
 static ssize_t write (struct file *filp, const char __user *buf, size_t count, loff_t *f_pos) {
-    printk(KERN_ALERT "Write call\n");
-    return 0;
+  printk(KERN_INFO "Executing: write\n\n");
+  // To do...
+  printk(KERN_INFO "\nSuccess: write\n\n");
+  return 0;
+}
+
+static int mydev_open(struct inode *inode, struct file *filp) {
+  if (((filp->f_flags & O_ACCMODE) == O_WRONLY) && is_busy){
+    return -EBUSY;
+  }
+
+  info_dev = container_of(inode->i_cdev, struct info_mydev, mydev_cdev);
+  filp->private_data = info_dev;
+
+  if ((filp->f_flags & O_ACCMODE) == O_WRONLY){
+    is_busy = 1;
+  }
+
+  return 0;
+}
+
+static void mydev_release(struct inode *inode, struct file *filp) {
+  if ((filp->f_flags & O_ACCMODE) == O_WRONLY){
+    is_busy = 0;
+  }
 }
 
 module_init(spkr_init);
