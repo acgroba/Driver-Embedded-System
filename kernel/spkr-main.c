@@ -12,6 +12,7 @@
 #include <linux/moduleparam.h>
 #include <linux/io.h>
 #include <linux/errno.h>
+#include <linux/spinlock.h>
 
 extern void spkr_io_init(void);
 extern void spkr_io_exit(void);
@@ -33,6 +34,7 @@ static ssize_t write(struct file *flip, const char __user *buf, size_t count, lo
 static int mydev_open(struct inode *inode, struct file *filp);
 static void mydev_release(struct inode *inode, struct file *filp);
 
+spinlock_t file_mod_lock;
 struct info_mydev *info_dev;
 static int is_busy = 0;
 static int open_result;
@@ -73,6 +75,8 @@ static int __init spkr_init(void) {
   printk(KERN_INFO "MAJOR ASIGNED: %d\n", (int)MAJOR(dev));
   printk(KERN_INFO "MINOR ASIGNED: %d\n", (int)MINOR(dev));
 
+  spin_lock_init(&file_mod_lock);
+
   cdev_init(&char_device,  &fops);
   cdev_add(&char_device, dev, 1);
   module = class_create(THIS_MODULE, CLASS_NAME);
@@ -81,7 +85,8 @@ static int __init spkr_init(void) {
   printk(KERN_INFO "\nSuccess: spkr_init\n\n");
 
   spkr_io_init();
-  spkr_set_frequency(frequency);
+  //spkr_set_frequency(frequency);
+  spkr_set_frequency(0);
   spkr_on();
 
   return 0;
@@ -105,19 +110,30 @@ static void __exit spkr_exit(void) {
 static int open_mod(struct inode *inode, struct file *filp) {
   printk(KERN_INFO "Executing: open_mod\n\n");
 
+  spin_lock(&file_mod_lock);
+
   open_result = mydev_open(inode, filp);
 
   if (open_result < 0) {
-    printk(KERN_INFO "\nError: open_mod %d\n\n", open_result);
+    printk(KERN_INFO "\nError: open_mod\n\n");
   } else {
     printk(KERN_INFO "\nSuccess: open_mod\n\n");
   }
+
+  spin_unlock(&file_mod_lock);
+
   return open_result;
 }
 
 static int release_mod(struct inode *inode, struct file *filp) {
   printk(KERN_INFO "Executing: release_mod\n\n");
+
+  spin_lock(&file_mod_lock);
+
   mydev_release(inode, filp);
+
+  spin_unlock(&file_mod_lock);
+
   printk(KERN_INFO "\nSuccess: release_mod\n\n");
   return 0;
 }
