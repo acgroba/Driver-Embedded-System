@@ -10,7 +10,7 @@
 #define CLOCKS_DISPLACEMENT		  0x101000
 #define CM_PWMCLKCTL              0xA0
 #define CM_PWMCLKDIV              0xA4
-#define PASSWORD                 (0x5A << 24) 
+#define PASSWORD                 (0x5A << 24)
 #define DIVIDER                   16
 #define GPIO_DISPLACEMENT		  0x200000
 #define GPFSEL1_DISPLACEMENT      4
@@ -48,29 +48,29 @@ static void reg_write_sync(volatile uint32_t* address, uint32_t value);
 static void reg_write_no_sync(volatile uint32_t* address, uint32_t value);
 static uint32_t reg_read_sync(volatile uint32_t* address);
 
-void spkr_init(void) {
+void spkr_io_init(void) {
 	printk(KERN_INFO "spkr init\n");
     virtual_dir_peripherals= (uint32_t*) ioremap(PERIPHERICAL_BASE_DIR, PERIPHERICAL_SPACE_SIZE);
 
 	init_clk();
 	init_gpio();
-	
+
 }
 
 void spkr_set_frequency(unsigned int frequency) {
 	printk(KERN_INFO "spkr set frequency: %d\n", frequency);
 
-    
+
     dir_pwm=(uint32_t *)virtual_dir_peripherals+PWM_DISPLACEMENT/4;
-    
+
     if (dir_pwm == MAP_FAILED){
       printk(KERN_INFO "ERROR 1\n");
       return;}
-   
+
     range=FREQ/frequency;
     reg_write_no_sync( (uint32_t *)dir_pwm+PWM_RANGE_DISPLACEMENT/4,range);
-    
- 
+
+
     data = range/2;
     reg_write_no_sync( (uint32_t *) dir_pwm+PWM_DATA_DISPLACEMENT/4,data);
 
@@ -79,10 +79,10 @@ void spkr_set_frequency(unsigned int frequency) {
 
 void spkr_on(void) {
 	printk(KERN_INFO "spkr ON\n");
-    
+
     if (dir_pwm == MAP_FAILED){
     	   printk(KERN_INFO "ERROR 2\n");
-    
+
       return;
     }
      ctrl = reg_read_sync((uint32_t *)dir_pwm + PWM_CONTROL_DISPLACEMENT);
@@ -94,12 +94,12 @@ void spkr_on(void) {
 }
 void spkr_off(void) {
 	printk(KERN_INFO "spkr OFF\n");
-    
+
         if (dir_pwm == MAP_FAILED){
         	printk(KERN_INFO "ERROR 3\n");
         }
-     
-   
+
+
     ctrl = reg_read_sync((uint32_t *) dir_pwm + PWM_CONTROL_DISPLACEMENT);
     ctrl &= ~PWM_MS_MODE;
     ctrl &= ~PWM_ENABLE;
@@ -107,7 +107,7 @@ void spkr_off(void) {
 
 }
 
-void spkr_exit(void) {
+void spkr_io_exit(void) {
 	printk(KERN_INFO "spkr exit\n");
 
 	 iounmap(virtual_dir_peripherals);
@@ -117,22 +117,22 @@ void spkr_exit(void) {
     dir_gpio  = MAP_FAILED;
     dir_pwm  = MAP_FAILED;
 
-   
+
 }
 
 
 void init_clk(void){
-	
+
     dir_clk=virtual_dir_peripherals+CLOCKS_DISPLACEMENT/4;
 
     if (dir_clk == MAP_FAILED){
     	printk(KERN_INFO "ERROR 4\n");
-      return; 
+      return;
     }
 
     reg_write_sync((uint32_t *)dir_clk + CM_PWMCLKDIV/4, PASSWORD | (DIVIDER << 12));
     mdelay(100);
-    reg_write_sync((uint32_t *) dir_clk + CM_PWMCLKCTL/4, PASSWORD | 0x11); 	
+    reg_write_sync((uint32_t *) dir_clk + CM_PWMCLKCTL/4, PASSWORD | 0x11);
 }
 
 void init_gpio(void){
@@ -143,7 +143,7 @@ void init_gpio(void){
      desp = (PIN % 10) * 3;
      mask = GPFSEL1_MASK << desp;
      val = GPFSEL1_VALUE << desp;
-     
+
      value = reg_read_sync(gpfsel1_dir);
      value = (value & ~mask) | (val & mask);
      reg_write_sync(gpfsel1_dir, value);
@@ -159,9 +159,9 @@ void reg_write_sync(volatile uint32_t* address, uint32_t value)
 
 void reg_write_no_sync(volatile uint32_t* address, uint32_t value)
 {
-  
+
   *address = value;
- 
+
 }
 
 uint32_t reg_read_sync(volatile uint32_t* address)
