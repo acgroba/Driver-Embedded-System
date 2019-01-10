@@ -45,7 +45,14 @@ static void mydev_release(struct inode *inode, struct file *filp);
 static int power_of_2(int n);
 static void play_sound(void);
 static void timer_function(unsigned long data);
+static void timer_function_new(struct timer_list *t) ;
 static unsigned int lower(unsigned int threshold, unsigned int bytes_left);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
+  static int fsync_mod(struct file *file, int datasync);
+#else
+  static int fsync_mod(struct file* file, loff_t start, loff_t end,
+                        int datasync);
+#endif
 
 int is_playing;
 static DEFINE_MUTEX(write_lock);
@@ -70,7 +77,8 @@ static struct file_operations fops = {
       .owner =    THIS_MODULE,
       .open =     open_mod,
       .release =  release_mod,
-      .write =    write
+      .write =    write,
+      .fsync = fsync_mod
 };
 
 module_param(buffer_threshold, int, S_IRUGO);
@@ -116,9 +124,16 @@ static int __init spkr_init(void) {
     return -ENOMEM;
   }
 
+ if(LINUX_VERSION_CODE < KERNEL_VERSION(4,1,5)){
   init_timer(&spkr_timer);
   spkr_timer.function = timer_function;
   spkr_timer.data = 0;
+}
+
+else{
+  timer_setup(&spkr_timer, timer_function_new,
+         0);
+}
 
   init_waitqueue_head(&spkr_write_fifo.list);
 
@@ -301,10 +316,38 @@ static void timer_function(unsigned long bytes_left) {
   }
 }
 
+static void timer_function_new(struct timer_list *t) {
+  
+  if(kfifo_len(&spkr_fifo) >= SOUND_SIZE)
+    play_sound();
+  else{
+    spkr_off();
+    is_playing = 0;
+  }
+
+  if(kfifo_is_empty(&spkr_fifo) || kfifo_avail(&spkr_fifo) >= lower(buffer_threshold,  t->data)){
+    printk(KERN_INFO "Waking up writer");
+    wake_up_interruptible(&spkr_write_fifo.list);
+  }
+}
 static unsigned int lower(unsigned int threshold, unsigned int bytes_left) {
   if(threshold < bytes_left)
     return threshold;
   return bytes_left;
+}
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
+static int fsync_mod(struct file *file, int datasync)
+#else
+static int fsync_mod(struct file* file, loff_t start, loff_t end, int datasync)
+#endif
+{
+  printk(KERN_INFO "Fsync called");
+  if(wait_event_interruptible(spkr_write_fifo.list, kfifo_is_empty(&spkr_fifo)) != 0){
+    return -ERESTARTSYS;
+  }
+
+  return 0;
 }
 
 module_init(spkr_init);
