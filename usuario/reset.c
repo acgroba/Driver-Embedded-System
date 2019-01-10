@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-
-
+#define SPKR_RESET _IO('9',3)
 int main(int argc, char *argv[]) {
 	int sd;
 

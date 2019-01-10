@@ -24,6 +24,9 @@ extern void spkr_off(void);
 #define DEVICE_NAME "intspkr"
 #define MODULE_NAME "spkr"
 #define SOUND_SIZE 4
+#define SPKR_SET_MUTE_STATE _IOW('9',1,int*)
+#define SPKR_GET_MUTE_STATE _IOR('9',2,int*)
+#define SPKR_RESET _IO('9',3)
 
 dev_t dev;
 struct cdev char_device;
@@ -47,6 +50,8 @@ static void play_sound(void);
 static void timer_function(unsigned long data);
 static void timer_function_new(struct timer_list *t) ;
 static unsigned int lower(unsigned int threshold, unsigned int bytes_left);
+static long ioctl_mod(struct file *filp, unsigned int cmd,
+                      unsigned long arg);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
   static int fsync_mod(struct file *file, int datasync);
 #else
@@ -55,6 +60,9 @@ static unsigned int lower(unsigned int threshold, unsigned int bytes_left);
 #endif
 
 int is_playing;
+int muted;
+int* param;
+int state;
 static DEFINE_MUTEX(write_lock);
 size_t writing_size;
 size_t remaining_bytes = 0;
@@ -79,7 +87,8 @@ static struct file_operations fops = {
       .open =     open_mod,
       .release =  release_mod,
       .write =    write,
-      .fsync = fsync_mod
+      .fsync = fsync_mod,
+      .unlocked_ioctl =  ioctl_mod
 };
 
 module_param(buffer_threshold, int, S_IRUGO);
@@ -350,6 +359,46 @@ static int fsync_mod(struct file* file, loff_t start, loff_t end, int datasync)
   }
 
   return 0;
+}
+
+static long ioctl_mod(struct file *filp, unsigned int cmd,
+                      unsigned long arg){
+
+  printk(KERN_INFO "IOCTL Operation");
+  printk(KERN_INFO "COMMAND: %d",cmd);
+
+  
+
+  
+  switch(cmd){
+
+     case SPKR_SET_MUTE_STATE:
+      printk(KERN_INFO "SET MUTE STATE");
+      param = (int*)arg;
+      get_user(state, param);
+      if(state == 0){
+        muted = 0;
+        spkr_on();
+      }else{
+        muted = 1;
+        spkr_off();
+      }
+      break;
+    case SPKR_GET_MUTE_STATE:
+      printk(KERN_INFO "GET MUTE STATE");
+      put_user(muted, (int*)arg);
+      break;
+   
+      
+    case SPKR_RESET:
+      printk(KERN_INFO "RESET FIFO");
+      spin_lock_bh(&write_to_device_lock);
+      kfifo_reset(&spkr_fifo);
+      spin_unlock_bh(&write_to_device_lock);
+      break;
+  }
+  return 0;
+
 }
 
 module_init(spkr_init);

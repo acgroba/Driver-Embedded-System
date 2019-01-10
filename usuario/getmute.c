@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+#define SPKR_GET_MUTE_STATE _IOR('9',2,int*)
 int main(int argc, char *argv[]) {
 	int sd;
 	
