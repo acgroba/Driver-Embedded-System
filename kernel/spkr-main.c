@@ -65,6 +65,7 @@ unsigned char sound[SOUND_SIZE];
 int sound_freq, sound_time;
 int bytes_copied, total_bytes_copied;
 struct wait_queue spkr_write_fifo;
+struct wait_queue fsync_wait;
 struct kfifo spkr_fifo;
 int buffer_size = PAGE_SIZE;
 int buffer_threshold = PAGE_SIZE;
@@ -124,19 +125,19 @@ static int __init spkr_init(void) {
     return -ENOMEM;
   }
 
- if(LINUX_VERSION_CODE < KERNEL_VERSION(4,1,5)){
+ //if(LINUX_VERSION_CODE < KERNEL_VERSION(4,1,5)){
   init_timer(&spkr_timer);
   spkr_timer.function = timer_function;
   spkr_timer.data = 0;
-}
+//}
 
-else{
+/*else{
   timer_setup(&spkr_timer, timer_function_new,
          0);
-}
+}*/
 
   init_waitqueue_head(&spkr_write_fifo.list);
-
+  init_waitqueue_head(&fsync_wait.list);
   spkr_io_init();
 
   is_playing = 0;
@@ -313,6 +314,7 @@ static void timer_function(unsigned long bytes_left) {
   if(kfifo_is_empty(&spkr_fifo) || kfifo_avail(&spkr_fifo) >= lower(buffer_threshold, bytes_left)){
     printk(KERN_INFO "Waking up writer");
     wake_up_interruptible(&spkr_write_fifo.list);
+    wake_up_interruptible(&fsync_wait.list);
   }
 }
 
@@ -343,7 +345,7 @@ static int fsync_mod(struct file* file, loff_t start, loff_t end, int datasync)
 #endif
 {
   printk(KERN_INFO "Fsync called");
-  if(wait_event_interruptible(spkr_write_fifo.list, kfifo_is_empty(&spkr_fifo)) != 0){
+  if(wait_event_interruptible(fsync_wait.list, kfifo_is_empty(&spkr_fifo)) != 0){
     return -ERESTARTSYS;
   }
 
