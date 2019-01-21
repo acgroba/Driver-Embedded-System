@@ -50,13 +50,16 @@ static void play_sound(void);
 static void timer_function(unsigned long data);
 static void timer_function_new(struct timer_list *t) ;
 static unsigned int lower(unsigned int threshold, unsigned int bytes_left);
-static long ioctl_mod(struct file *filp, unsigned int cmd,
-                      unsigned long arg);
+static long ioctl_mod(struct file *filp, unsigned int cmd, unsigned long arg);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
   static int fsync_mod(struct file *file, int datasync);
 #else
-  static int fsync_mod(struct file* file, loff_t start, loff_t end,
-                        int datasync);
+  static int fsync_mod(struct file* file, loff_t start, loff_t end, int datasync);
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
+  int old_kernel = 1;
+#else
+  int old_kernel = 0;
 #endif
 
 int is_playing;
@@ -105,6 +108,8 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 static int __init spkr_init(void) {
   printk(KERN_INFO "Executing: spkr_init\n\n");
+  printk(KERN_INFO "LINUX_VERSION_CODE: %d\n", LINUX_VERSION_CODE);
+  printk(KERN_INFO "KERNEL_VERSION(4,15,0): %d\n", KERNEL_VERSION(4,15,0));
 
   buffer_size = power_of_2(buffer_size);
   printk(KERN_INFO "Buffer Size: %d\n", buffer_size);
@@ -134,16 +139,13 @@ static int __init spkr_init(void) {
     return -ENOMEM;
   }
 
- //if(LINUX_VERSION_CODE < KERNEL_VERSION(4,1,5)){
   init_timer(&spkr_timer);
-  spkr_timer.function = timer_function;
-  spkr_timer.data = 0;
-//}
-
-/*else{
-  timer_setup(&spkr_timer, timer_function_new,
-         0);
-}*/
+  if (old_kernel) {
+    spkr_timer.function = timer_function;
+    spkr_timer.data = 0;
+  } else {
+    timer_setup(&spkr_timer, timer_function_new, 0);
+  }
 
   init_waitqueue_head(&spkr_write_fifo.list);
   init_waitqueue_head(&fsync_wait.list);
@@ -303,8 +305,15 @@ static void play_sound(void) {
     spkr_on();
   }
 
-  spkr_timer.expires = jiffies + msecs_to_jiffies(sound_time);
-  add_timer(&spkr_timer);
+  if (old_kernel) {
+    del_timer(&spkr_timer);
+
+    spkr_timer.expires = jiffies + msecs_to_jiffies(sound_time);
+
+    add_timer(&spkr_timer);
+  } else {
+    mod_timer(&spkr_timer, jiffies + msecs_to_jiffies(sound_time));
+  }
 
   printk(KERN_INFO "play_sound kfifo_len: %d\n", kfifo_len(&spkr_fifo));
 
@@ -320,15 +329,14 @@ static void timer_function(unsigned long bytes_left) {
     is_playing = 0;
   }
 
-  if(kfifo_is_empty(&spkr_fifo) || kfifo_avail(&spkr_fifo) >= lower(buffer_threshold, bytes_left)){
+  if (kfifo_is_empty(&spkr_fifo) || kfifo_avail(&spkr_fifo) >= lower(buffer_threshold, bytes_left)) {
     printk(KERN_INFO "Waking up writer");
     wake_up_interruptible(&spkr_write_fifo.list);
     wake_up_interruptible(&fsync_wait.list);
   }
 }
-
 static void timer_function_new(struct timer_list *t) {
-  
+
   if(kfifo_len(&spkr_fifo) >= SOUND_SIZE)
     play_sound();
   else{
@@ -336,11 +344,13 @@ static void timer_function_new(struct timer_list *t) {
     is_playing = 0;
   }
 
-  if(kfifo_is_empty(&spkr_fifo) || kfifo_avail(&spkr_fifo) >= lower(buffer_threshold,  t->data)){
+  if (kfifo_is_empty(&spkr_fifo) || kfifo_avail(&spkr_fifo) >= lower(buffer_threshold,  t->data)) {
     printk(KERN_INFO "Waking up writer");
     wake_up_interruptible(&spkr_write_fifo.list);
+    wake_up_interruptible(&fsync_wait.list);
   }
 }
+
 static unsigned int lower(unsigned int threshold, unsigned int bytes_left) {
   if(threshold < bytes_left)
     return threshold;
@@ -348,9 +358,9 @@ static unsigned int lower(unsigned int threshold, unsigned int bytes_left) {
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-static int fsync_mod(struct file *file, int datasync)
+  static int fsync_mod(struct file *file, int datasync)
 #else
-static int fsync_mod(struct file* file, loff_t start, loff_t end, int datasync)
+  static int fsync_mod(struct file* file, loff_t start, loff_t end, int datasync)
 #endif
 {
   printk(KERN_INFO "Fsync called");
@@ -361,35 +371,31 @@ static int fsync_mod(struct file* file, loff_t start, loff_t end, int datasync)
   return 0;
 }
 
-static long ioctl_mod(struct file *filp, unsigned int cmd,
-                      unsigned long arg){
+static long ioctl_mod(struct file *filp, unsigned int cmd, unsigned long arg){
 
   printk(KERN_INFO "IOCTL Operation");
   printk(KERN_INFO "COMMAND: %d",cmd);
 
-  
-
-  
   switch(cmd){
 
-     case SPKR_SET_MUTE_STATE:
+    case SPKR_SET_MUTE_STATE:
       printk(KERN_INFO "SET MUTE STATE");
       param = (int*)arg;
       get_user(state, param);
-      if(state == 0){
+      if (state == 0) {
         muted = 0;
         spkr_on();
-      }else{
+      } else {
         muted = 1;
         spkr_off();
       }
       break;
+
     case SPKR_GET_MUTE_STATE:
       printk(KERN_INFO "GET MUTE STATE");
       put_user(muted, (int*)arg);
       break;
-   
-      
+
     case SPKR_RESET:
       printk(KERN_INFO "RESET FIFO");
       spin_lock_bh(&write_to_device_lock);
@@ -398,7 +404,6 @@ static long ioctl_mod(struct file *filp, unsigned int cmd,
       break;
   }
   return 0;
-
 }
 
 module_init(spkr_init);
